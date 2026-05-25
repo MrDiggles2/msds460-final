@@ -8,6 +8,7 @@ import argparse
 import time
 import logging
 import pandas as pd
+import numpy as np
 
 POLICY_MAP = {
     "first_fit": FirstFitPolicy,
@@ -49,8 +50,7 @@ def parse_args():
     parser.add_argument(
         "-v",
         "--verbose",
-        type=bool,
-        default=False
+        action="store_true",
     )
 
     return parser.parse_args()
@@ -76,7 +76,7 @@ def main():
         scheduled_count = sum(len(s.scheduledVMs) for s in simulation.fleet.servers)
         rejected_count = args.vm_count - scheduled_count
 
-        logging.debug('--------------------------------------------------------------------------------')
+        logging.debug('-' * 80)
         logging.debug(f'SIM #{i} | scheduled={scheduled_count} rejected={rejected_count}')
         logging.debug(f'stranded: {result.totalStranded}')
         logging.debug(f'unused: {result.totalUnused}')
@@ -96,9 +96,32 @@ def main():
 
     if not args.verbose:
         print('')
-    logging.debug('--------------------------------------------------------------------------------')
+    logging.debug('-' * 80)
 
     df = pd.DataFrame(results)
-    filename = f'output/naive-{int(time.time())}.csv'
+
+    print(f"\nSimulation completed over n={args.n} runs")
+    metrics = {
+        "scheduled_count": df["scheduled_count"],
+        "unused_cpu": df["unused_cpu"],
+        "unused_memGB": df["unused_memGB"],
+        "unused_diskGB": df["unused_diskGB"],
+    }
+
+    print("\n---------------------- Summary Statistics (mean ± 95% CI) ----------------------")
+
+    for name, series in metrics.items():
+        mean, lower, upper = mean_ci(series)
+        print(f"{name:<18} {mean:>10.3f} {lower:>12.3f} {upper:>12.3f}")
+
+    print('-' * 80)
+    filename = f'output/sim-results-{int(time.time())}.csv'
     df.to_csv(filename)
-    logging.info(f'Wrote simulation results to {filename}')
+    print(f'\nWrote full simulation results to {filename}\n')
+
+def mean_ci(series, confidence=1.96):
+    mean = series.mean()
+    std_err = series.std(ddof=1) / np.sqrt(len(series))
+    lower = mean - confidence * std_err
+    upper = mean + confidence * std_err
+    return mean, lower, upper

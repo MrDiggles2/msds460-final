@@ -18,12 +18,11 @@ class Simulation:
         self.policy = policy
 
     def run(self) -> SimulationResult:
-        placements = []
-
+        vms = []
         for i in range(self.vm_count):
-            vm = self.simulateVMRequest(i)
-            serverID = self.fleet.schedule(vm, self.policy)
-            placements.append((serverID, vm.id))
+            vms.append(self.simulateVMRequest(i))
+
+        placements = self.fleet.schedule(vms, self.policy)
 
         totalStranded = ResourceSet()
         totalUnused = ResourceSet()

@@ -2,7 +2,6 @@ from simulation.core.server import Server
 from simulation.core.vm import VM
 from simulation.core.resource_set import ResourceSet
 from simulation.policies.base import SchedulingPolicy
-from simulation.core.vm_placement import VMPlacement
 
 class Fleet:
     servers: list[Server]
@@ -16,5 +15,5 @@ class Fleet:
                 capacity=server_capacity
             ))
 
-    def schedule(self, vms: list[VM], policy: SchedulingPolicy) -> list[VMPlacement]:
+    def schedule(self, vms: list[VM], policy: SchedulingPolicy):
         return policy.place(vms, self.servers)

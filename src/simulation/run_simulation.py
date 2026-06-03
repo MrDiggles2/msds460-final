@@ -2,7 +2,7 @@ from simulation.core.fleet import Fleet
 from simulation.core.resource_set import ResourceSet
 from simulation.simulation import Simulation
 from simulation.policies.first_fit import FirstFitPolicy
-from simulation.policies.goal_programming import GoalProgrammingPolicy
+from simulation.policies.minimize_active_servers import MinimizeActiveServers
 
 import argparse
 import time
@@ -12,7 +12,7 @@ import numpy as np
 
 POLICY_MAP = {
     "first_fit": FirstFitPolicy,
-    "goal": GoalProgrammingPolicy
+    "minimize": MinimizeActiveServers
 }
 
 def parse_args():

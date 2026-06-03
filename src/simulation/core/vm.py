@@ -7,3 +7,6 @@ class VM:
     def __init__(self, id: str, desired: ResourceSet):
         self.id = id
         self.desired = desired
+
+    def __str__(self):
+        return "vm:" + self.id

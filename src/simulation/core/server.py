@@ -12,6 +12,9 @@ class Server:
         self.capacity = capacity
         self.scheduledVMs = {}
 
+    def __str__(self):
+        return "server:" + self.id
+
     def getUsedCapacity(self) -> ResourceSet:
         return sum((vm.desired for vm in self.scheduledVMs.values()), ResourceSet())
 

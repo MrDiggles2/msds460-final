@@ -3,6 +3,7 @@ from simulation.core.resource_set import ResourceSet
 from simulation.simulation import Simulation
 from simulation.policies.first_fit import FirstFitPolicy
 from simulation.policies.minimize_active_servers import MinimizeActiveServers
+from simulation.policies.min_active_min_strand import MinActiveMinStrand
 
 import argparse
 import time
@@ -12,7 +13,8 @@ import numpy as np
 
 POLICY_MAP = {
     "first_fit": FirstFitPolicy,
-    "minimize": MinimizeActiveServers
+    "min": MinimizeActiveServers,
+    'min2':  MinActiveMinStrand,
 }
 
 def parse_args():
@@ -71,28 +73,47 @@ def main():
         fleet = Fleet(args.server_count, ResourceSet(cpu = 96, memGB = 256, diskGB = 1024))
         simulation = Simulation(fleet, args.vm_count, policy)
 
-        result = simulation.run()
+        simulation.run()
 
         scheduled_count = sum(len(s.scheduledVMs) for s in simulation.fleet.servers)
         rejected_count = args.vm_count - scheduled_count
 
-        logging.debug('-' * 80)
-        logging.debug(f'SIM #{i} | scheduled={scheduled_count} rejected={rejected_count}')
-        logging.debug(f'stranded: {result.totalStranded}')
-        logging.debug(f'unused: {result.totalUnused}')
-        for server in simulation.fleet.servers:
-            logging.debug(f'\t{server.id} | vms={len(server.scheduledVMs)} | remaining={server.getAvailableCapacity()}')
-
-        results.append({
+        result = {
             "scheduled_count": scheduled_count,
             "rejected_count": rejected_count,
-            "unused_cpu": result.totalUnused.cpu,
-            "unused_memGB": result.totalUnused.memGB,
-            "unused_diskGB": result.totalUnused.diskGB,
-            "stranded_cpu": result.totalStranded.cpu,
-            "stranded_memGB": result.totalStranded.memGB,
-            "stranded_diskGB": result.totalStranded.diskGB,
-        })
+        }
+
+        logging.debug('-' * 80)
+        logging.debug(f'SIM #{i} | scheduled={scheduled_count} rejected={rejected_count}')
+
+        for server_idx, server in enumerate(simulation.fleet.servers):
+
+            remaining = server.getAvailableCapacity()
+            capacity = server.capacity
+
+            cpu_util = 1 - remaining.cpu / capacity.cpu
+            mem_util = 1 - remaining.memGB / capacity.memGB
+            disk_util = 1 - remaining.diskGB / capacity.diskGB
+
+            balance = max(cpu_util, mem_util, disk_util) - min(
+                cpu_util, mem_util, disk_util
+            )
+
+            result[f"server_{server_idx}_cpu_util"] = cpu_util
+            result[f"server_{server_idx}_mem_util"] = mem_util
+            result[f"server_{server_idx}_disk_util"] = disk_util
+            result[f"server_{server_idx}_balance"] = balance
+
+            logging.debug(
+                f"\t{server.id}"
+                f" | vms={len(server.scheduledVMs)}"
+                f" | cpu={cpu_util:.2%}"
+                f" | mem={mem_util:.2%}"
+                f" | disk={disk_util:.2%}"
+                f" | balance={balance:.3f}"
+            )
+
+        results.append(result)
 
     if not args.verbose:
         print('')
@@ -101,27 +122,53 @@ def main():
     df = pd.DataFrame(results)
 
     print(f"\nSimulation completed over n={args.n} runs")
-    metrics = {
-        "scheduled_count": df["scheduled_count"],
-        "unused_cpu": df["unused_cpu"],
-        "unused_memGB": df["unused_memGB"],
-        "unused_diskGB": df["unused_diskGB"],
-    }
 
-    print("\n---------------------- Summary Statistics (mean ± 95% CI) ----------------------")
+    def mean_ci(series):
+        mean = series.mean()
+        se = series.std(ddof=1) / np.sqrt(len(series))
+        margin = 1.96 * se
+        return mean, mean - margin, mean + margin
 
-    for name, series in metrics.items():
-        mean, lower, upper = mean_ci(series)
-        print(f"{name:<18} {mean:>10.3f} {lower:>12.3f} {upper:>12.3f}")
+    print("\n=== VM Placement Summary ===\n")
 
-    print('-' * 80)
-    filename = f'output/sim-results-{int(time.time())}.csv'
+    for metric in ["scheduled_count", "rejected_count"]:
+        mean, lower, upper = mean_ci(df[metric])
+
+        print(
+            f"{metric:<20}"
+            f"{mean:>10.2f}"
+            f" [{lower:.2f}, {upper:.2f}]"
+        )
+
+    print("\n=== Average Server Utilization ===\n")
+
+    for server_idx in range(args.server_count):
+
+        cpu_mean = df[f"server_{server_idx}_cpu_util"].mean()
+        mem_mean = df[f"server_{server_idx}_mem_util"].mean()
+        disk_mean = df[f"server_{server_idx}_disk_util"].mean()
+
+        print(
+            f"Server {server_idx:<2}"
+            f" CPU={cpu_mean:6.1%}"
+            f" MEM={mem_mean:6.1%}"
+            f" DISK={disk_mean:6.1%}"
+        )
+
+    print("\n=== Average Server Balance ===\n")
+
+    for server_idx in range(args.server_count):
+
+        mean, lower, upper = mean_ci(
+            df[f"server_{server_idx}_balance"]
+        )
+
+        print(
+            f"Server {server_idx:<2}"
+            f" balance={mean:.3f}"
+            f" [{lower:.3f}, {upper:.3f}]"
+        )
+
+    filename = f'./output/results-{time.time()}.csv'
+    print(f"\nFull results written to {filename}\n")
     df.to_csv(filename)
-    print(f'\nWrote full simulation results to {filename}\n')
-
-def mean_ci(series, confidence=1.96):
-    mean = series.mean()
-    std_err = series.std(ddof=1) / np.sqrt(len(series))
-    lower = mean - confidence * std_err
-    upper = mean + confidence * std_err
-    return mean, lower, upper

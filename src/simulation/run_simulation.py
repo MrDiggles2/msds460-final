@@ -78,9 +78,25 @@ def main():
         scheduled_count = sum(len(s.scheduledVMs) for s in simulation.fleet.servers)
         rejected_count = args.vm_count - scheduled_count
 
+        all_vms = {vm.id: vm for vm in simulation.vms}
+        scheduled_vms = {vm_id for s in simulation.fleet.servers for vm_id in s.scheduledVMs }
+        rejected_vms = set(all_vms.keys()).difference(scheduled_vms)
+
+        total_rejected_cpu = 0
+        total_rejected_mem = 0
+        total_rejected_disk = 0
+
+        for vm_id in rejected_vms:
+            total_rejected_cpu += all_vms[vm_id].desired.cpu
+            total_rejected_mem += all_vms[vm_id].desired.memGB
+            total_rejected_disk += all_vms[vm_id].desired.diskGB
+
         result = {
             "scheduled_count": scheduled_count,
             "rejected_count": rejected_count,
+            "total_rejected_cpu": total_rejected_cpu,
+            "total_rejected_mem": total_rejected_mem,
+            "total_rejected_disk": total_rejected_disk,
         }
 
         logging.debug('-' * 80)
@@ -99,6 +115,7 @@ def main():
                 cpu_util, mem_util, disk_util
             )
 
+            result[f"server_{server_idx}_scheduled"] = len(server.scheduledVMs)
             result[f"server_{server_idx}_cpu_util"] = cpu_util
             result[f"server_{server_idx}_mem_util"] = mem_util
             result[f"server_{server_idx}_disk_util"] = disk_util
@@ -131,7 +148,7 @@ def main():
 
     print("\n=== VM Placement Summary ===\n")
 
-    for metric in ["scheduled_count", "rejected_count"]:
+    for metric in ["scheduled_count", "rejected_count", "total_rejected_cpu", "total_rejected_mem", "total_rejected_disk"]:
         mean, lower, upper = mean_ci(df[metric])
 
         print(
@@ -144,12 +161,14 @@ def main():
 
     for server_idx in range(args.server_count):
 
+        scheduled = df[f"server_{server_idx}_scheduled"].mean()
         cpu_mean = df[f"server_{server_idx}_cpu_util"].mean()
         mem_mean = df[f"server_{server_idx}_mem_util"].mean()
         disk_mean = df[f"server_{server_idx}_disk_util"].mean()
 
         print(
             f"Server {server_idx:<2}"
+            f" VMS={scheduled}"
             f" CPU={cpu_mean:6.1%}"
             f" MEM={mem_mean:6.1%}"
             f" DISK={disk_mean:6.1%}"

@@ -5,37 +5,39 @@ from simulation.policies.base import SchedulingPolicy
 import random
 
 class Simulation:
+    vms: list[VM]
+
     def __init__(self, fleet: Fleet, vm_count: int, policy: SchedulingPolicy):
         self.fleet = fleet
         self.vm_count = vm_count
         self.policy = policy
+        self.vms = []
 
     def run(self):
-        vms = []
         for i in range(self.vm_count):
-            vms.append(self.simulateVMRequest(i))
+            self.vms.append(self.simulateVMRequest(i))
 
-        self.fleet.schedule(vms, self.policy)
+        self.fleet.schedule(self.vms, self.policy)
 
     def simulateVMRequest(self, vm_id: int) -> VM:
         seed = random.random()
 
-        if seed <= 0.25:
+        if seed <= 0.022:
             vm = VM(f'vm-{vm_id}', ResourceSet(cpu=1, memGB=0.5, diskGB=10))
 
-        elif seed <= 0.50:
+        elif seed <= 0.022 + 0.32:
             vm = VM(f'vm-{vm_id}', ResourceSet(cpu=1, memGB=1, diskGB=25))
 
-        elif seed <= 0.75:
+        elif seed <= 0.022 + 0.32 + 0.12:
             vm = VM(f'vm-{vm_id}', ResourceSet(cpu=1, memGB=2, diskGB=50))
 
-        elif seed <= 0.87:
+        elif seed <= 0.022 + 0.32 + 0.12 + 0.05:
             vm = VM(f'vm-{vm_id}', ResourceSet(cpu=2, memGB=2, diskGB=60))
 
-        elif seed <= 0.95:
+        elif seed <= 0.022 + 0.32 + 0.12 + 0.05 + 0.11:
             vm = VM(f'vm-{vm_id}', ResourceSet(cpu=2, memGB=4, diskGB=80))
 
-        elif seed <= 0.99:
+        elif seed <= 0.022 + 0.32 + 0.12 + 0.05 + 0.11 + 0.22:
             vm = VM(f'vm-{vm_id}', ResourceSet(cpu=4, memGB=8, diskGB=160))
 
         else:

@@ -5,7 +5,7 @@ from simulation.core.server import Server
 from simulation.core.vm import VM
 
 
-class MinActiveMinStrand(SchedulingPolicy):
+class GoalORTools(SchedulingPolicy):
     def place(self, vms: list[VM], servers: list[Server]):
         model = cp_model.CpModel()
 

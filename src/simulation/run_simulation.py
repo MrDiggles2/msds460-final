@@ -3,7 +3,8 @@ from simulation.core.resource_set import ResourceSet
 from simulation.simulation import Simulation
 from simulation.policies.first_fit import FirstFitPolicy
 from simulation.policies.minimize_active_servers import MinimizeActiveServers
-from simulation.policies.min_active_min_strand import MinActiveMinStrand
+from simulation.policies.goal_via_or_tools import GoalORTools
+from simulation.policies.minimize_balance import MinimizeBalance
 
 import argparse
 import time
@@ -14,7 +15,8 @@ import numpy as np
 POLICY_MAP = {
     "first_fit": FirstFitPolicy,
     "min": MinimizeActiveServers,
-    'min2':  MinActiveMinStrand,
+    "goal": MinimizeBalance,
+    'goal_or':  GoalORTools,
 }
 
 def parse_args():
@@ -70,7 +72,7 @@ def main():
         if not args.verbose:
             print('.', end='', flush=True) # so we can get a sense of progress
 
-        fleet = Fleet(args.server_count, ResourceSet(cpu = 96, memGB = 256, diskGB = 1024))
+        fleet = Fleet(args.server_count, ResourceSet(cpu = 96, memGB = 256, diskGB = 4096))
         simulation = Simulation(fleet, args.vm_count, policy)
 
         simulation.run()
